@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TicketSniper · 12306 抢票控制台</title>
+<style>
+:root{--bg:#0e1116;--fg:#e6edf3;--dim:#8b949e;--card:#161b22;--line:#30363d;
+--ok:#3fb950;--warn:#d29922;--err:#f85149;--hit:#d2a8ff;--acc:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+background:var(--bg);color:var(--fg)}
+header{display:flex;align-items:center;gap:10px;padding:12px 18px;
+border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:9;flex-wrap:wrap}
+h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.5px}
+h1 span{color:var(--acc)}
+.pill{font-size:12px;padding:2px 9px;border-radius:20px;background:#21262d;color:var(--dim);
+white-space:nowrap}
+.pill.on{background:#1f6feb33;color:var(--acc);border:1px solid #1f6feb66}
+.pill.hit{background:#d2a8ff22;color:var(--hit);border:1px solid #d2a8ff55}
+main{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px;align-items:start}
+@media(max-width:1040px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card h2{margin:0;font-size:13px;padding:10px 14px;border-bottom:1px solid var(--line);
+color:var(--dim);font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2 .btns{display:flex;gap:6px}
+.card .body{padding:12px 14px}
+button{background:#21262d;color:var(--fg);border:1px solid var(--line);border-radius:6px;
+padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.primary{background:#238636;border-color:#2ea043;color:#fff}
+button.primary:hover{background:#2ea043;color:#fff}
+button.danger{background:#da3633;border-color:#f85149;color:#fff}
+button.danger:hover{background:#f85149;color:#fff}
+button.tiny{padding:2px 8px;font-size:12px}
+input,select{background:#0d1117;border:1px solid var(--line);border-radius:6px;
+padding:6px 9px;color:var(--fg);font-size:13px;width:100%;font-family:inherit}
+label{display:block;font-size:12px;color:var(--dim);margin:6px 0 3px}
+.row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.row2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.logbox{height:360px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;
+padding:8px 12px;background:#0b0e13}
+.logline{white-space:pre-wrap;word-break:break-all}
+.t-OK{color:var(--ok)}.t-WARNING{color:var(--warn)}.t-ERROR{color:var(--err)}
+.t-HIT{color:var(--hit)}.t-INFO{color:#9fb0c0}.t-DEBUG{color:#566}
+.task{border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:8px;
+border-left:3px solid transparent}
+.task.running{border-left-color:var(--acc)}
+.task.hit{border-left-color:var(--hit)}
+.task.done{border-left-color:var(--ok)}
+.task .th{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:600;font-size:13px}
+.task .meta{color:var(--dim);font-size:12px;margin-top:4px;line-height:1.6}
+.task .num{color:var(--acc);font-variant-numeric:tabular-nums}
+img.qr{background:#fff;border-radius:8px;width:190px;height:190px;display:block}
+.stat{display:flex;gap:18px;font-size:12px;color:var(--dim);flex-wrap:wrap}
+.stat b{color:var(--fg);font-size:15px;display:block;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--dim);font-weight:500;position:sticky;top:0;background:var(--card)}
+tr:hover td{background:#1c2129}
+.empty{color:#566;text-align:center;padding:18px;font-size:12px}
+.scroll{max-height:260px;overflow:auto}
+.tiny-txt{font-size:11px;color:#566}
+details summary{cursor:pointer;color:var(--dim);font-size:12px;padding:4px 0;user-select:none}
+details summary:hover{color:var(--acc)}
+.ok{color:var(--ok)}.err{color:var(--err)}.warn{color:var(--warn)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ticket<span>Sniper</span></h1>
+  <span class="pill" id="p-state">未运行</span>
+  <span class="pill" id="p-net">-</span>
+  <span class="pill" id="p-login">未登录</span>
+  <span class="pill" id="p-clock">-</span>
+  <div style="flex:1"></div>
+  <button onclick="runDoctor()">体检</button>
+  <button class="primary" onclick="startAll(false)">开始抢票</button>
+  <button onclick="startAll(true)">演练</button>
+  <button class="danger" onclick="stopAll()">停止</button>
+</header>
+<main>
+  <div>
+    <div class="card">
+      <h2>任务 <span class="pill" id="t-count">-</span>
+        <div class="btns"><button class="tiny" onclick="loadTasks()">刷新</button></div>
+      </h2>
+      <div class="body" id="tasks"><div class="empty">加载中…</div></div>
+      <details style="padding:0 14px 12px">
+        <summary>+ 新增任务</summary>
+        <div style="margin-top:8px">
+          <div class="row">
+            <div><label>出发站</label><input id="n-from" placeholder="北京南"></div>
+            <div><label>到达站</label><input id="n-to" placeholder="上海虹桥"></div>
+            <div><label>日期</label><input id="n-dates" value="+1" placeholder="+1 或 2026-11-21"></div>
+          </div>
+          <div class="row2" style="margin-top:0">
+            <div><label>席别（逗号分隔，顺序即优先级）</label>
+              <input id="n-seats" value="二等座,一等座"></div>
+            <div><label>选座偏好</label>
+              <input id="n-prefer" placeholder="靠窗 / 过道 / F（动车组生效）"></div>
+          </div>
+          <div class="row2" style="margin-top:0">
+            <div><label>出发时间窗</label><input id="n-depart" placeholder="06:00-12:00"></div>
+            <div><label>乘客（逗号分隔，账号下同名即可）</label>
+              <input id="n-pax" placeholder="张三"></div>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+            <button class="primary" onclick="addTask()">保存任务</button>
+            <span class="tiny-txt" id="n-info"></span>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>余票预览 <span class="pill" id="q-sale">-</span></h2>
+      <div class="body">
+        <div class="row">
+          <div><label>出发</label><input id="q-from" value="北京南"></div>
+          <div><label>到达</label><input id="q-to" value="上海虹桥"></div>
+          <div><label>日期</label><input id="q-date" type="date"></div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button onclick="doQuery()">查询</button>
+          <span class="pill" id="q-info">-</span>
+        </div>
+        <div class="scroll" style="margin-top:10px"><table id="q-table"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" id="doctor-card" style="display:none">
+      <h2>开抢前体检 <span class="pill" id="d-verdict">-</span>
+        <div class="btns"><button class="tiny" onclick="runDoctor()">重测</button></div>
+      </h2>
+      <div class="body" id="doctor-body" style="font-size:12px;line-height:1.9"></div>
+    </div>
+
+    <div class="card">
+      <h2>实时日志
+        <div class="btns">
+          <button class="tiny" onclick="document.getElementById('logs').innerHTML=''">清屏</button>
+        </div>
+      </h2>
+      <div class="logbox" id="logs"></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>扫码登录 <span class="pill" id="qr-state">idle</span></h2>
+      <div class="body" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div id="qr-wrap"><div class="empty" style="width:190px;height:190px;display:flex;align-items:center;justify-content:center;border:1px dashed #30363d;border-radius:8px;text-align:center">点右侧按钮<br>生成二维码</div></div>
+        <div style="flex:1;min-width:180px">
+          <button onclick="genQr()">生成二维码</button>
+          <div class="tiny-txt" style="margin-top:10px">
+            用 12306 官方 APP 扫码。登录后 cookie 存到 <code>runtime/sessions/</code>，
+            命令行和 Web 共用同一套登录态。
+          </div>
+          <div class="stat" style="margin-top:14px" id="stats"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>订单账本 <span class="pill" id="o-count">-</span></h2>
+      <div class="scroll"><table id="o-table"></table></div>
+    </div>
+  </div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TOKEN=new URLSearchParams(location.search).get('token')||'';
+const d1=new Date(Date.now()+86400000);
+$('#q-date').value=d1.toISOString().slice(0,10);
+
+async function j(u,o){
+  o=o||{};
+  if(TOKEN){o.headers=Object.assign({},o.headers,{'x-ts-token':TOKEN})}
+  const r=await fetch(u,o);
+  if(!r.ok)throw new Error((await r.text()).slice(0,200));
+  return r.json();
+}
+
+// ------------------------------------------------ 任务
+let _states={};
+async function loadTasks(){
+  try{
+    const [t,s]=await Promise.all([j('/api/tasks'),j('/api/status')]);
+    s.tasks.forEach(x=>_states[x.id]=x);
+    $('#t-count').textContent=t.tasks.length+' 个';
+    const box=$('#tasks');
+    if(!t.tasks.length){box.innerHTML='<div class="empty">tasks.yaml 里没有任务</div>';return}
+    box.innerHTML=t.tasks.map(task=>{
+      const st=_states[task.id]||{};
+      const cls=st.state==='success'?'done':(st.state==='hit'||st.state==='queue')?'hit':
+                (st.state&&st.state!=='idle'&&st.state!=='stopped'?'running':'');
+      const stateTxt={idle:'待命',login:'登录中',query:'查询中',hit:'命中',queue:'排队',
+        success:'成功',failed:'失败',stopped:'已停'}[st.state]||st.state||'待命';
+      return `<div class="task ${cls}">
+        <div class="th"><span>${esc(task.name||task.id)}</span>
+          <span class="pill ${st.state==='success'?'on':''}">${stateTxt}</span></div>
+        <div class="meta">
+          ${esc(task.from_station)} → ${esc(task.to_station)} · ${esc((task.dates||[]).join(','))}
+          · 席别 ${esc((task.seats||[]).join('/'))}
+          ${(task.seat_prefer||[]).length?'· 选座 '+esc(task.seat_prefer.join('/')):''}
+          <br>乘客 ${esc((task.passengers||[]).map(p=>p.name).filter(Boolean).join('、')||'未填')}
+          ${st.queries?`<br>轮次 <span class="num">${st.round}</span>
+            查询 <span class="num">${st.queries}</span>
+            命中 <span class="num">${st.hits}</span>
+            下单 <span class="num">${st.orders}</span>`:''}
+          ${st.last_train?`<br>最近 ${esc(st.last_train)} ${esc(st.last_seat)} @ ${esc(st.last_at)}`:''}
+          ${st.last_msg?`<br><span class="${st.error?'err':'tiny-txt'}">${esc(st.last_msg)}</span>`:''}
+          ${st.order_id?`<br><span class="ok">订单号 ${esc(st.order_id)}</span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){$('#tasks').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}
+}
+
+async function addTask(){
+  const v=id=>$(id).value.trim();
+  if(!v('#n-from')||!v('#n-to')){$('#n-info').textContent='出发/到达不能为空';return}
+  const body={
+    from_station:v('#n-from'), to_station:v('#n-to'),
+    dates:v('#n-dates').split(',').map(s=>s.trim()).filter(Boolean),
+    seats:v('#n-seats').split(',').map(s=>s.trim()).filter(Boolean),
+    seat_prefer:v('#n-prefer').split(',').map(s=>s.trim()).filter(Boolean),
+    depart_between:v('#n-depart'),
+    passengers:v('#n-pax').split(',').map(s=>s.trim()).filter(Boolean).map(n=>({name:n})),
+  };
+  try{
+    const d=await j('/api/tasks',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify(body)});
+    $('#n-info').textContent='已保存 '+d.id;
+    loadTasks();
+  }catch(e){$('#n-info').textContent='失败: '+e.message}
+}
+
+// ------------------------------------------------ 状态
+async function refresh(){
+  try{
+    const d=await j('/api/status');
+    $('#p-state').textContent=d.running?'运行中':'未运行';
+    $('#p-state').className='pill'+(d.running?' on':'');
+    $('#p-net').textContent=`QPS ${d.net.rate} · worker ${d.net.workers} · CDN ${d.net.cdn_nodes}`;
+    $('#p-login').textContent=d.login.logged_in?'已登录':'未登录';
+    $('#p-login').className='pill'+(d.login.logged_in?' on':'');
+    $('#p-clock').textContent=d.server_time;
+    $('#stats').innerHTML=`<div><b>${d.orders.total}</b>下单次数</div>
+      <div><b>${d.orders.success}</b>成功</div>
+      <div><b>${d.orders.today}</b>24h</div>
+      <div><b>${d.orders.rate}%</b>成功率</div>`;
+  }catch(e){}
+}
+
+function setRunning(on){$('#p-state').textContent=on?'运行中':'未运行';
+  $('#p-state').className='pill'+(on?' on':'')}
+
+async function startAll(dry){
+  try{
+    const d=await j('/api/run',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({dry:!!dry})});
+    if(!d.ok)alert(d.msg||'启动失败');
+    setTimeout(()=>{loadTasks();refresh()},400);
+  }catch(e){alert(e.message)}
+}
+async function stopAll(){try{await j('/api/stop',{method:'POST'})}catch(e){}
+  setTimeout(()=>{loadTasks();refresh()},400)}
+
+// ------------------------------------------------ 余票
+function fmtLeft(sec){
+  if(sec==null)return '';
+  const a=Math.abs(sec),d=Math.floor(a/86400),h=Math.floor(a%86400/3600),m=Math.floor(a%3600/60);
+  if(d)return `${d}天${h}小时`;
+  if(h)return `${h}小时${m}分`;
+  return `${m}分`;
+}
+
+async function fetchSale(){
+  try{
+    const p=new URLSearchParams({station:$('#q-from').value,date:$('#q-date').value});
+    const d=await j('/api/sale?'+p);
+    // 重点回答一个问题：我查的这天的票，什么时候能买？
+    let s=`${d.station} 每日 ${d.sale_time||'?'} 起售`;
+    const days=Math.round((new Date(d.date+'T00:00:00')-new Date(new Date().toDateString()))/86400000);
+    if(d.released===true){
+      s+=` · ${d.date} 的票已于 ${d.open_at} 放出`;
+    }else if(days>d.presale_days){
+      s+=` · ${d.date} 还在预售期外（最多看 ${d.presale_days} 天，${days-d.presale_days+1} 天后才开卖）`;
+    }else if(d.open_at){
+      s+=` · ${d.date} 的票 ${d.open_at} 放（还有 ${fmtLeft(d.open_countdown)}）`;
+    }else{
+      s+=` · ${d.date} 的票还没进预售期`;
+    }
+    $('#q-sale').textContent=s;
+  }catch(e){$('#q-sale').textContent='起售时刻获取失败'}
+}
+
+async function doQuery(){
+  const p=new URLSearchParams({from:$('#q-from').value,to:$('#q-to').value,date:$('#q-date').value});
+  $('#q-info').textContent='查询中…';
+  fetchSale();
+  try{
+    const d=await j('/api/query?'+p);
+    $('#q-info').textContent=`${d.count} 趟`;
+    if(!d.count){$('#q-table').innerHTML='<tr><td class="empty">这天的票还没放 / 已售完</td></tr>';return}
+    $('#q-table').innerHTML='<tr><th>车次</th><th>发-到</th><th>历时</th><th>余票</th></tr>'+
+      d.trains.slice(0,60).map(t=>{
+        const seats=Object.entries(t.seats||{}).map(([k,v])=>{
+          const n=v>9000?'有':v;
+          return `<span style="color:${v>0?'#3fb950':'#566'}">${esc(k)}:${esc(n)}</span>`;
+        }).join(' ');
+        return `<tr><td>${esc(t.code)}</td>
+          <td>${esc(t.start)}-${esc(t.arrive)}</td>
+          <td>${esc(t.duration)}</td><td>${seats}</td></tr>`;
+      }).join('');
+  }catch(e){$('#q-info').textContent=e.message.slice(0,80)}
+}
+
+// ------------------------------------------------ 订单
+async function loadOrders(){
+  try{
+    const d=await j('/api/orders?limit=40');
+    $('#o-count').textContent=`${d.stats.success}/${d.stats.total}`;
+    if(!d.orders.length){$('#o-table').innerHTML='<tr><td class="empty">还没有下单记录</td></tr>';return}
+    $('#o-table').innerHTML='<tr><th>时间</th><th>车次</th><th>席别</th><th>结果</th></tr>'+
+      d.orders.map(o=>`<tr>
+        <td class="tiny-txt">${esc((o.at||'').slice(5,16))}</td>
+        <td>${esc(o.train)}<br><span class="tiny-txt">${esc(o.date)}</span></td>
+        <td>${esc(o.seat)}<br><span class="tiny-txt">${esc(o.passengers)}</span></td>
+        <td class="${o.ok?'ok':'err'}">${o.ok?'成功 '+esc(o.order_id):esc((o.msg||'').slice(0,28))}</td>
+      </tr>`).join('');
+  }catch(e){}
+}
+
+// ------------------------------------------------ 扫码
+async function genQr(){
+  await j('/api/login/qr',{method:'POST'});
+  const t=setInterval(async()=>{
+    try{
+      const d=await j('/api/qr');
+      $('#qr-state').textContent=d.status;
+      if(d.png){$('#qr-wrap').innerHTML=`<img class="qr" src="data:image/png;base64,${d.png}">`}
+      if(d.status!=='waiting'&&d.status!=='idle'){
+        clearInterval(t);
+        if(d.status!=='ok')setTimeout(()=>{$('#qr-state').textContent='可重新生成'},4000);
+        refresh();
+      }
+    }catch(e){clearInterval(t)}
+  },1500);
+}
+
+// ------------------------------------------------ 体检
+const DICON={ok:'✅',warn:'⚠️',err:'❌',info:'·'};
+async function runDoctor(){
+  const card=$('#doctor-card'); card.style.display='block';
+  $('#d-verdict').textContent='检测中…';
+  $('#doctor-body').innerHTML='<div class="tiny-txt">正在跑网络/路由/起售/登录/通知检查，约 5-15 秒…</div>';
+  try{
+    const d=await j('/api/doctor');
+    const head={ok:'可以开抢',warn:'基本可用',fail:'有硬伤'}[d.verdict]||d.verdict;
+    $('#d-verdict').textContent=head+' '+d.counts.ok+'/'+d.counts.warn+'/'+d.counts.err;
+    $('#d-verdict').className='pill '+(d.verdict==='ok'?'on':(d.verdict==='fail'?'':'hit'));
+    let html='',last=null;
+    for(const it of d.items){
+      if(it.section!==last){html+=`<div class="tiny-txt" style="margin-top:7px;color:#8b949e">${esc(it.section)}</div>`;last=it.section}
+      const cls=it.level==='err'?'err':(it.level==='warn'?'warn':'');
+      html+=`<div class="${cls}">${DICON[it.level]||'·'} ${esc(it.msg)}</div>`;
+      if(it.hint)html+=`<div class="tiny-txt" style="padding-left:18px">→ ${esc(it.hint)}</div>`;
+    }
+    $('#doctor-body').innerHTML=html;
+  }catch(e){$('#d-verdict').textContent='失败';$('#doctor-body').textContent=e.message}
+}
+
+// ------------------------------------------------ 日志流
+const logs=$('#logs');
+let es;
+function connectLogs(){
+  es=new EventSource('/api/logs/stream'+(TOKEN?('?token='+encodeURIComponent(TOKEN)):''));
+  es.onmessage=ev=>{
+    let arr; try{arr=JSON.parse(ev.data)}catch(e){return}
+    const frag=document.createDocumentFragment();
+    for(const l of arr){
+      const d=document.createElement('div');
+      d.className='logline t-'+l.level;
+      d.textContent=`${l.t} ${String(l.level).padEnd(7)} ${String(l.tag).padEnd(9)} ${l.msg}`;
+      frag.appendChild(d);
+    }
+    logs.appendChild(frag);
+    while(logs.childElementCount>900)logs.removeChild(logs.firstChild);
+    logs.scrollTop=logs.scrollHeight;
+  };
+  es.onerror=()=>{try{es.close()}catch(e){}; setTimeout(connectLogs,3000)};
+}
+
+loadTasks();refresh();loadOrders();fetchSale();
+// ?nolive=1 时不连 SSE：截图/离线调试时避免长连接把负载事件挂住
+if(!new URLSearchParams(location.search).has('nolive'))connectLogs();
+setInterval(()=>{loadTasks();refresh()},3000);
+setInterval(loadOrders,15000);
+</script>
+</body>
+</html>

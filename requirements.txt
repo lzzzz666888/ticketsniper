@@ -1,0 +1,13 @@
+# TicketSniper 依赖（Python >= 3.9）
+# 核心：HTTP 客户端（HTTP/2 连接池 + 令牌桶限速）
+httpx[http2]>=0.27
+h2>=4.1
+PyYAML>=6.0
+# Web 控制台
+fastapi>=0.110
+uvicorn>=0.27
+# 二维码 / 验证码图片处理
+pillow>=10.0
+# 可选：浏览器兜底过滑块（login.slide=browser 时需要）
+# playwright>=1.40
+# 可选：Windows 提示音（notify.sound=true 时自动使用标准库 winsound，无需安装）

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ticketsniper"
+version = "1.0.0"
+description = "12306 抢票引擎：起售窗口调度 + 纯 Python SM4 + 余票路由自适应 + Web 控制台"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "ticketsniper" }]
+keywords = ["12306", "ticket", "railway", "automation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "httpx[http2]>=0.27",
+    "h2>=4.1",
+    "PyYAML>=6.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+# 密码登录遇到滑块（nc_1_n1z）时才需要，扫码登录不需要
+browser = ["playwright>=1.40"]
+
+[project.scripts]
+ticketsniper = "ticketsniper.cli:main"
+
+[tool.setuptools]
+packages = ["ticketsniper", "ticketsniper.api", "ticketsniper.web"]
+
+[tool.setuptools.package-data]
+"ticketsniper.web" = ["index.html"]

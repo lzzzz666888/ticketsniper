@@ -1,0 +1,26 @@
+# 运行期产物
+runtime/
+data/*.json
+data/cdn.txt
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# 本地配置（含密码/cookie/常旅客证件号，绝不能进版本库）
+config.yaml
+tasks.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
