@@ -1,7 +1,10 @@
 # TicketSniper · 12306 抢票引擎
 
 > 在 py12306 / testerSunshine 之上重写的抢票内核：**围绕车站起售时刻打窗口**，而不是匀速轮询。
+
 > 纯 Python，无浏览器依赖（扫码登录可全流程无头），带 Web 控制台与实时日志。
+
+**仓库**：https://github.com/lzzzz666888/ticketsniper
 
 ```
   ______ _ _        _        _____       _
